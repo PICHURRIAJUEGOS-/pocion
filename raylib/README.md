@@ -20,6 +20,10 @@ and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
 be found at <https://hexdocs.pm/raylib>.
 
 
+## Resources
+
+* https://www.raylib.com/cheatsheet/cheatsheet.html
+
 ## Other implementations
 
 * https://github.com/shiryel/rayex

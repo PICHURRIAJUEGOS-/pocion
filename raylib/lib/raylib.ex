@@ -12,17 +12,49 @@ defmodule Raylib do
       @cInclude("raylib.h");
   });
 
-  pub const InitWindowOptions = struct { width: i32, height: i32, title: [*]const u8 };
   const beam = @import("beam");
 
-  pub fn init_window(options: InitWindowOptions) beam.term {
-      ray.InitWindow(options.width, options.height, options.title);
+  pub fn init_window(width: i32, height: i32, title: [*]const u8) beam.term {
+      ray.InitWindow(width, height, title);
+      return beam.make(.ok, .{});
+  }
+
+  pub fn set_target_fps(fps: i32) beam.term {
+      ray.SetTargetFPS(fps);
+      return beam.make(.ok, .{});
+  }
+
+  pub fn window_should_close() bool {
+      return ray.WindowShouldClose();
+  }
+
+  pub fn begin_drawing() beam.term {
+      ray.BeginDrawing();
+      return beam.make(.ok, .{});
+  }
+
+  pub fn end_drawing() beam.term {
+      ray.EndDrawing();
+      return beam.make(.ok, .{});
+  }
+  const ColorType = enum { lightgray };
+
+  pub fn draw_text(text: [*]const u8, pos_x: i32, pos_y: i32, font_size: i32, icolor: beam.term) !beam.term {
+      ray.DrawText(text, pos_x, pos_y, font_size, try cast_color(icolor));
+
       return beam.make(.ok, .{});
   }
 
   pub fn close_window() beam.term {
       ray.CloseWindow();
       return beam.make(.ok, .{});
+  }
+
+  fn cast_color(icolor: beam.term) !ray.Color {
+      const zcolor = try beam.get(ColorType, icolor, .{});
+      return switch (zcolor) {
+          .lightgray => ray.LIGHTGRAY,
+      };
   }
   """
 end
