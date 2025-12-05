@@ -1,13 +1,17 @@
-defmodule Sdl.MixProject do
+defmodule Raylib.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :sdl,
+      app: :raylib,
       version: "0.1.0",
       elixir: "~> 1.19",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      aliases: aliases(),
+      elixirc_options: [
+        warnings_as_errors: true
+      ]
     ]
   end
 
@@ -16,6 +20,10 @@ defmodule Sdl.MixProject do
     [
       extra_applications: [:logger]
     ]
+  end
+
+  defp aliases do
+    [compile: "compile --force --warnings-as-errors"]
   end
 
   # Run "mix help deps" to learn about dependencies.

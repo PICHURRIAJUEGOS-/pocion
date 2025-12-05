@@ -1,6 +1,6 @@
-defmodule Sdl do
+defmodule Raylib do
   @moduledoc """
-  Documentation for `Sdl`.
+  Documentation for `Raylib`.
   """
 
   @doc """
@@ -8,7 +8,7 @@ defmodule Sdl do
 
   ## Examples
 
-      iex> Sdl.hello()
+      iex> Raylib.hello()
       :world
 
   """

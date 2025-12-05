@@ -1,0 +1,8 @@
+defmodule RaylibTest do
+  use ExUnit.Case
+  doctest Raylib
+
+  test "greets the world" do
+    assert Raylib.hello() == :world
+  end
+end
