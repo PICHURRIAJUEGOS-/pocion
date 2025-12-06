@@ -8,8 +8,20 @@ defmodule HelloWorld.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      # Starts a worker by calling: HelloWorld.Worker.start_link(arg)
-      # {HelloWorld.Worker, arg}
+      {Pocion,
+       [
+         :hello_world,
+         %{
+           width: 640,
+           height: 480,
+           title: "Hello World",
+           opts: [
+             otp_app: :hello_world,
+             pocion_node_path: "../../pocion_node"
+           ]
+         }
+       ]},
+      HelloWorld
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

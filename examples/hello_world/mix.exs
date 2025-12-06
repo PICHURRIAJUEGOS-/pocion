@@ -22,7 +22,8 @@ defmodule HelloWorld.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:pocion_node, "~> 0.0", path: "../../pocion_node"}
+      {:raylib, "~> 0.0", path: "../../raylib"},
+      {:pocion, "~> 0.0", path: "../../pocion"}
     ]
   end
 end
