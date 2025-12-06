@@ -1,0 +1,8 @@
+defmodule PocionTest do
+  use ExUnit.Case
+
+  test "create/close" do
+    assert {:ok, w} = Pocion.create_window(640, 480, "tete")
+    Pocion.close_window(w)
+  end
+end

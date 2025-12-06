@@ -7,7 +7,7 @@ const ray = @cImport({
 
 const beam = @import("beam");
 
-pub fn init_window(width: i32, height: i32, title: [*]const u8) beam.term {
+pub fn init_window(width: i32, height: i32, title: [*c]const u8) beam.term {
     ray.InitWindow(width, height, title);
     return beam.make(.ok, .{});
 }

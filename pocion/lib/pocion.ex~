@@ -1,0 +1,88 @@
+defmodule Pocion do
+  require Logger
+
+  defstruct [:root_node, :node]
+
+  def create_window(width, height, title) do
+    {_, root_node, domain} = start_root_node()
+    Logger.info("root_node #{root_node}")
+
+    case start_raylib_node(root_node, domain) do
+      {:ok, node} ->
+        self = %__MODULE__{node: node, root_node: root_node}
+        rpc(self, :init_window, [width, height, title])
+        {:ok, self}
+    end
+  end
+
+  def close_window(%__MODULE__{} = self) do
+    rpc(self, :close_window, [])
+  end
+
+  defp start_raylib_node(root_node, domain) do
+    node = node_name(domain)
+    elixir_path = System.find_executable("elixir")
+
+    port =
+      Port.open({:spawn_executable, elixir_path}, [
+        :stderr_to_stdout,
+        :use_stdio,
+        :binary,
+        args: node_args(root_node, node)
+      ])
+
+    receive do
+      {:node_started, node} ->
+        IO.inspect("node started #{node}")
+
+      {^port, data} ->
+        IO.inspect(data)
+    after
+      5000 ->
+        raise "fails to start node"
+    end
+
+    {:ok, {node, port}}
+  end
+
+  defp node_args(root_node, node) do
+    [
+      "--sname",
+      node,
+      "--no-halt",
+      "--eval",
+      "System.argv() |> hd() |> Base.decode64!() |> Code.eval_string()",
+      setup_node(root_node)
+    ]
+  end
+
+  defp setup_node(root_node) do
+    quote bind_quoted: [root_node: root_node] do
+      true = Node.connect(root_node)
+      send({:pocion, root_node}, {:node_started, Node.self()})
+    end
+    |> Macro.to_string()
+    |> Base.encode64()
+  end
+
+  defp rpc(_self, _cmd, _args) do
+  end
+
+  defp start_root_node() do
+    case Node.start(:pocion, name_domain: :shortnames, hidden: false) do
+      {:ok, node_pid} ->
+        Process.register(self(), :pocion)
+        [_name, domain] = Node.self() |> to_string() |> String.split("@", parts: 2)
+        {node_pid, Node.self(), domain}
+
+      {:error, {:already_started, node_pid}} ->
+        [_name, domain] = Node.self() |> to_string() |> String.split("@", parts: 2)
+        {node_pid, Node.self(), domain}
+    end
+  end
+
+  defp node_name(domain) do
+    name = :crypto.strong_rand_bytes(5) |> Base.encode16()
+    String.to_atom("#{name}@#{domain}")
+  end
+end
