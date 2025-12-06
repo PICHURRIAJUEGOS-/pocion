@@ -1,20 +1,18 @@
 defmodule Pocion do
-  require Logger
+  @moduledoc """
+  """
 
-  defstruct [:root_node, :node]
+  defstruct [:root_node, :node, :node_port]
 
-  def create_window(width, height, title) do
+  def create_link_window(width, height, title) do
     {root_node, domain} = start_root_node()
-
-    Logger.info("root_node #{root_node}")
 
     callback_pid = self_as_callback(node_name(domain))
 
     case start_raylib_node({callback_pid, root_node}, node_name(domain)) do
-      {:ok, node} ->
-        self = %__MODULE__{node: node, root_node: root_node}
+      {:ok, node, node_port} ->
+        self = %__MODULE__{node: node, node_port: node_port, root_node: root_node}
         :ok = raylib(self, :init_window, [width, height, title])
-
         {:ok, self}
     end
   end
@@ -54,9 +52,10 @@ defmodule Pocion do
 
     loop = fn loop ->
       receive do
-        {:node_started, node, _node_pid} ->
+        {:node_started, init_ref, node, node_pid} ->
           IO.inspect("node started #{node}")
-          {:ok, {node, port}}
+          send(node_pid, {:node_initialized, init_ref})
+          {:ok, node, port}
 
         {^port, {:data, data}} ->
           IO.inspect(data)
@@ -90,11 +89,25 @@ defmodule Pocion do
       {:ok, _} = Node.start(current_node, name_domain: :shortnames, hidden: true)
       Process.register(self(), :pocion)
       true = Node.connect(root_node)
-      send({root_pid, root_node}, {:node_started, Node.self(), self()})
+      init_ref = make_ref()
+      send({root_pid, root_node}, {:node_started, init_ref, Node.self(), self()})
+      Process.monitor({root_pid, root_node})
+
+      receive do
+        {:node_initialized, ^init_ref} ->
+          :ok
+      after
+        60000 ->
+          IO.puts("timeout can't get response from server #{current_node}")
+          System.halt(1)
+      end
 
       defmodule RPC do
         def loop do
           receive do
+            {:DOWN, _, :process, _, _} ->
+              System.halt()
+
             :halt ->
               System.halt()
           end
@@ -107,11 +120,11 @@ defmodule Pocion do
     |> Base.encode64()
   end
 
-  defp halt(%__MODULE__{node: {node, _}}) do
+  defp halt(%__MODULE__{node: node}) do
     :rpc.call(node, System, :halt, [])
   end
 
-  defp raylib(%__MODULE__{node: {node, _}}, fun, args) do
+  defp raylib(%__MODULE__{node: node}, fun, args) do
     :rpc.call(node, Raylib, fun, args)
   end
 

@@ -1,19 +1,36 @@
 defmodule PocionTest do
   use ExUnit.Case
 
+  setup do
+    wm = start_supervised!(Pocion.WindowManager)
+    %{wm: wm}
+  end
+
   test "single window" do
-    assert {:ok, w} = Pocion.create_window(640, 480, a_name())
+    assert {:ok, w} = Pocion.create_link_window(640, 480, "test1")
     Pocion.close_window(w)
   end
 
   test "multi window" do
-    assert {:ok, w} = Pocion.create_window(640, 480, a_name())
-    assert {:ok, w2} = Pocion.create_window(640, 480, a_name())
+    assert {:ok, w} = Pocion.create_link_window(640, 480, "test2")
+    assert {:ok, w2} = Pocion.create_link_window(320, 240, "test3")
     Pocion.close_window(w)
     Pocion.close_window(w2)
   end
 
-  defp a_name do
-    :crypto.strong_rand_bytes(5) |> Base.encode16()
+  test "when root dies windows die", %{wm: wm} do
+    test_pid = self()
+
+    pid =
+      spawn(fn ->
+        {:ok, w} = Pocion.create_link_window(640, 480, "die")
+        :ok = Pocion.WindowManager.register(wm, w, :die)
+        send(test_pid, :started)
+      end)
+
+    assert_receive :started, 30000
+    monitor_ref = Pocion.WindowManager.monitor(wm, :die)
+    Process.exit(pid, :kill)
+    assert_receive {:pocion, {:DOWN, ^monitor_ref, :window, :die}}, 1000
   end
 end

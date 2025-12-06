@@ -1,26 +1,43 @@
 defmodule Pocion do
-  require Logger
+  @moduledoc """
+  """
 
-  defstruct [:root_node, :node]
+  alias Pocion.WindowManager
 
-  def create_window(width, height, title) do
-    {_, root_node, domain} = start_root_node()
-    Logger.info("root_node #{root_node}")
+  defstruct [:root_node, :node, :node_port]
 
-    case start_raylib_node(root_node, domain) do
-      {:ok, node} ->
-        self = %__MODULE__{node: node, root_node: root_node}
-        rpc(self, :init_window, [width, height, title])
+  def create_link_window(manager, link_name, width, height, title) when is_atom(link_name) do
+    {root_node, domain} = start_root_node()
+
+    callback_pid = self_as_callback(node_name(domain))
+
+    case start_raylib_node({callback_pid, root_node}, node_name(domain)) do
+      {:ok, node, node_port} ->
+        self = %__MODULE__{node: node, node_port: node_port, root_node: root_node}
+        :ok = raylib(self, :init_window, [width, height, title])
+        :ok = WindowManager.register(manager, self, link_name)
+
         {:ok, self}
     end
   end
 
   def close_window(%__MODULE__{} = self) do
-    rpc(self, :close_window, [])
+    :ok = raylib(self, :close_window, [])
+    halt(self)
   end
 
-  defp start_raylib_node(root_node, domain) do
-    node = node_name(domain)
+  defp self_as_callback(name) do
+    case Process.info(self()) |> Keyword.get(:registered_name) do
+      nil ->
+        Process.register(self(), name)
+        name
+
+      name ->
+        name
+    end
+  end
+
+  defp start_raylib_node(root_node, node) do
     elixir_path = System.find_executable("elixir")
 
     port =
@@ -31,58 +48,155 @@ defmodule Pocion do
         args: node_args(root_node, node)
       ])
 
-    receive do
-      {:node_started, node} ->
-        IO.inspect("node started #{node}")
+    wait_node_started(port)
+  end
 
-      {^port, data} ->
-        IO.inspect(data)
-    after
-      5000 ->
-        raise "fails to start node"
+  defp wait_node_started(port) do
+    port_ref = Port.monitor(port)
+
+    loop = fn loop ->
+      receive do
+        {:node_started, init_ref, node, node_pid} ->
+          IO.inspect("node started #{node}")
+          send(node_pid, {:node_initialized, init_ref})
+          {:ok, node, port}
+
+        {^port, {:data, data}} ->
+          IO.inspect(data)
+          loop.(loop)
+
+        {:DOWN, ^port_ref, :port, _, reason} ->
+          raise "terminated unexpectedly: #{reason}"
+      after
+        10000 ->
+          raise "fails to start node"
+      end
     end
 
-    {:ok, {node, port}}
+    loop.(loop)
   end
 
   defp node_args(root_node, node) do
     [
-      "--sname",
-      node,
-      "--no-halt",
+      "--erl",
+      "-noinput",
+      "--hidden",
       "--eval",
       "System.argv() |> hd() |> Base.decode64!() |> Code.eval_string()",
-      setup_node(root_node)
+      setup_node(root_node, node)
     ]
   end
 
-  defp setup_node(root_node) do
-    quote bind_quoted: [root_node: root_node] do
+  defp setup_node({root_pid, root_node}, current_node) do
+    quote bind_quoted: [root_pid: root_pid, root_node: root_node, current_node: current_node] do
+      Mix.install([{:raylib, "~> 0.0", path: "../raylib"}])
+      {:ok, _} = Node.start(current_node, name_domain: :shortnames, hidden: true)
+      Process.register(self(), :pocion)
       true = Node.connect(root_node)
-      send({:pocion, root_node}, {:node_started, Node.self()})
+      init_ref = make_ref()
+      send({root_pid, root_node}, {:node_started, init_ref, Node.self(), self()})
+      Process.monitor({root_pid, root_node})
+
+      receive do
+        {:node_initialized, ^init_ref} ->
+          :ok
+      after
+        60000 ->
+          IO.puts("timeout can't get response from server #{current_node}")
+          System.halt(1)
+      end
+
+      defmodule RPC do
+        def loop do
+          receive do
+            {:DOWN, _, :process, _, _} ->
+              System.halt()
+
+            :halt ->
+              System.halt()
+          end
+        end
+      end
+
+      RPC.loop()
     end
     |> Macro.to_string()
     |> Base.encode64()
   end
 
-  defp rpc(_self, _cmd, _args) do
+  defp halt(%__MODULE__{node: node}) do
+    :rpc.call(node, System, :halt, [])
+  end
+
+  defp raylib(%__MODULE__{node: node}, fun, args) do
+    :rpc.call(node, Raylib, fun, args)
   end
 
   defp start_root_node() do
     case Node.start(:pocion, name_domain: :shortnames, hidden: false) do
-      {:ok, node_pid} ->
-        Process.register(self(), :pocion)
+      {:ok, _node_pid} ->
         [_name, domain] = Node.self() |> to_string() |> String.split("@", parts: 2)
-        {node_pid, Node.self(), domain}
+        {Node.self(), domain}
 
-      {:error, {:already_started, node_pid}} ->
+      {:error, {:already_started, _}} ->
         [_name, domain] = Node.self() |> to_string() |> String.split("@", parts: 2)
-        {node_pid, Node.self(), domain}
+        {Node.self(), domain}
     end
   end
 
   defp node_name(domain) do
     name = :crypto.strong_rand_bytes(5) |> Base.encode16()
     String.to_atom("#{name}@#{domain}")
+  end
+end
+
+defmodule Pocion.WindowManager do
+  @moduledoc false
+
+  use GenServer
+
+  def start_link(_) do
+    GenServer.start_link(__MODULE__, [])
+  end
+
+  def register(manager, window, name) do
+    GenServer.call(manager, {:register, window, name})
+  end
+
+  def monitor(manager, name) do
+    GenServer.call(manager, {:monitor, name})
+  end
+
+  @impl true
+  def init(_) do
+    {:ok, %{windows: %{}, monitors: %{}}}
+  end
+
+  @impl true
+  def handle_call({:register, window, name}, _from, state) do
+    state = put_in(state, [:windows, name], window)
+    {:reply, :ok, state}
+  end
+
+  def handle_call({:monitor, name}, from, state) do
+    case Map.get(state, name) do
+      nil ->
+        {:reply, :ok, state}
+
+      window ->
+        monitor_ref = Process.monitor(window.node_port)
+        state = put_in(state, [:monitors, monitor_ref], {from, name})
+        {:reply, monitor_ref, state}
+    end
+  end
+
+  @impl true
+  def handle_info({:DOWN, ref, :process, _, _}, state) do
+    {{reply_to, window_name}, monitors} = Map.pop(state.monitors, ref)
+    windows = Map.delete(state.windows, window_name)
+
+    send(reply_to, {:pocion, {:DOWN, ref, :window, window_name}})
+
+    {:noreply, %{state | windows: windows, monitors: monitors}}
   end
 end
