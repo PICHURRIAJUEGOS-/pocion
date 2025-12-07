@@ -46,7 +46,6 @@ fn ray_string(text: beam.term) ![*c]const u8 {
     return null_terminated.ptr;
 }
 
-
 const LogLevelType = enum { log_debug, log_info, log_error };
 
 pub fn set_trace_log_level(ilog_level: beam.term) !beam.term {
@@ -77,8 +76,8 @@ pub fn execute(ops: []Operation) !beam.term {
     ray.BeginDrawing();
     for (ops) |op| {
         switch (op.op) {
-.begin_drawing => ray.BeginDrawing(),
-.end_drawing => ray.EndDrawing(),
+            .begin_drawing => ray.BeginDrawing(),
+            .end_drawing => ray.EndDrawing(),
             .draw_text => {
                 const args = try beam.get(DrawTextArguments, op.args, .{});
                 const ctext = try ray_string(args.text);

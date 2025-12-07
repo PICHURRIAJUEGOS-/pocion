@@ -12,9 +12,6 @@ defmodule HelloWorld do
     Pocion.call_window(:hello_world, fn ->
       Raylib.set_target_fps(60)
       Raylib.set_trace_log_level(:log_debug)
-      Raylib.begin_drawing()
-      Raylib.clear_background(:raywhite)
-      Raylib.end_drawing()
     end)
 
     tick()
@@ -26,10 +23,12 @@ defmodule HelloWorld do
     tick()
 
     Pocion.call_window(:hello_world, fn ->
-      Raylib.draw_operations([
-        %{op: "clear_background", args: %{color: :raywhite}},
-        %{op: "draw_fps", args: %{x: 10, y: 10}},
-        %{op: "draw_text", args: %{text: "Hello world!", x: 190, y: state.y, font_size: 20, color: :lightgray}}
+      Raylib.execute([
+        %{op: :begin_drawing, args: %{}},
+        %{op: :clear_background, args: %{color: :raywhite}},
+        %{op: :draw_fps, args: %{x: 10, y: 10}},
+        %{op: :draw_text, args: %{text: "Hello world!", x: 190, y: state.y, font_size: 20, color: :lightgray}},
+        %{op: :end_drawing, args: %{}}
       ])
 
     end)
@@ -47,6 +46,6 @@ defmodule HelloWorld do
   end
 
   defp tick do
-    Process.send_after(self(), :tick, 10)
+    Process.send_after(self(), :tick, 1)
   end
 end
