@@ -114,7 +114,7 @@ defmodule Pocion.Window do
   defp node_args(boot_script) do
     [
       "--erl",
-      "--disable-jit -noinput",
+      "+sbwt very_short +sbwtdcpu very_short +sbwtdio very_short -secio true --disable-jit -noinput",
       "--hidden",
       "--eval",
       "System.argv() |> hd() |> Base.decode64!() |> Code.eval_string()",
@@ -138,7 +138,7 @@ defmodule Pocion.Window do
             current_node: current_node,
             app_beams: app_beams
           ] do
-      Code.prepend_paths(app_beams)
+      Code.prepend_paths(app_beams, cache: true)
       {:ok, _} = Node.start(current_node, name_domain: :shortnames, hidden: true)
       Process.register(self(), :pocion)
       true = Node.connect(root_node)

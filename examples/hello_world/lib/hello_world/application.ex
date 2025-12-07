@@ -9,19 +9,20 @@ defmodule HelloWorld.Application do
   def start(_type, _args) do
     children = [
       Supervisor.child_spec(
-      {Pocion,
-       [
-         :hello_world,
-         %{
-           width: 640,
-           height: 480,
-           title: "Hello World",
-           opts: [
-             otp_app: :hello_world
-           ]
-         }
-       ]},
-      id: :hello_world),
+        {Pocion,
+         [
+           :hello_world,
+           %{
+             width: 640,
+             height: 480,
+             title: "Hello World",
+             opts: [
+               otp_app: :hello_world
+             ]
+           }
+         ]},
+        id: :hello_world
+      ),
       HelloWorld
     ]
 
