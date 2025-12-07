@@ -19,6 +19,7 @@ defmodule RaylibTest do
 
     Raylib.draw_operations([
       %{op: "clear_background", args: %{color: :raywhite}},
+      %{op: "draw_fps", args: %{x: 10, y: 10}},
       %{
         op: "draw_text",
         args: %{text: "carajo", x: 100, y: 100, font_size: 20, color: :lightgray}
