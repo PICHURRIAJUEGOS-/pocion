@@ -1,6 +1,9 @@
-# Raylib
+# Raylib (Experimental)
 
-**TODO: Add description**
+DO NOT ADD UNNECESSARY CODE!!!
+EVERY LINE HAS A PRACTICAL REASON.
+
+This library does not attempt to map the behavior of Raylib one-to-one, but rather seeks its most appropiate use.
 
 ## Installation
 
@@ -19,11 +22,6 @@ Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_do
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
 be found at <https://hexdocs.pm/raylib>.
 
-
-## Input tests
-
-* [X] direct call `IsKeyPressed` lag
-* [X] reply as message lag
 
 ## Resources
 

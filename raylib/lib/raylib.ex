@@ -23,6 +23,8 @@ defmodule Raylib do
 
   const State = struct { sounds: std.AutoHashMap(u32, ray.Sound) };
 
+  var previous_time: f64 = 0.0;
+
   // Module callbacks
 
   pub fn load_fn(private: ?*?*anyopaque, _: u32) !void {
@@ -48,18 +50,30 @@ defmodule Raylib do
       defer beam.allocator.free(ctitle[0..std.mem.len(ctitle)]);
       ray.SetConfigFlags(ray.FLAG_MSAA_4X_HINT);
       ray.InitWindow(width, height, ctitle);
-
+      previous_time = ray.GetTime();
       return beam.make(.ok, .{});
   }
 
+  // TODO: move to init_window option
   pub fn init_audio_device() beam.term {
       ray.InitAudioDevice();
       return beam.make(.ok, .{});
   }
 
-  pub fn set_target_fps(fps: i32) beam.term {
-      ray.SetTargetFPS(fps);
-      return beam.make(.ok, .{});
+  pub fn wait_target_FPS(target_FPS: f64) f64 {
+      var current_time = ray.GetTime();
+      var delta_time = current_time - previous_time;
+      const wait_time = (1.0 / target_FPS) - delta_time;
+
+      if (wait_time > 0) {
+          ray.PollInputEvents();
+          ray.WaitTime(wait_time);
+          current_time = ray.GetTime();
+      }
+
+      delta_time = current_time - previous_time;
+      previous_time = current_time;
+      return delta_time;
   }
 
   pub fn window_should_close() bool {
@@ -78,19 +92,6 @@ defmodule Raylib do
   }
 
   const KeyType = enum { KEY_G };
-
-  pub fn is_key_pressed(ikey: beam.term) !bool {
-      const zkey = try beam.get(KeyType, ikey, .{});
-      const key = switch (zkey) {
-          .KEY_G => ray.KEY_G,
-      };
-      const pressed = ray.IsKeyPressed(key);
-
-      if (pressed) {
-          std.log.info("KEY PRESSED", .{});
-      }
-      return pressed;
-  }
 
   const ColorType = enum { lightgray, raywhite, lime };
 
@@ -133,7 +134,7 @@ defmodule Raylib do
   }
 
   const Vector2 = struct { x: f32, y: f32 };
-  const OperationType = enum { begin_drawing, end_drawing, draw_text, draw_fps, draw_circle, draw_circle_v, play_sound, clear_background, is_key_pressed };
+  const OperationType = enum { begin_drawing, end_drawing, draw_text, draw_fps, draw_circle, draw_circle_v, play_sound, clear_background, is_key_pressed, wait_time, swap_screen_buffer, poll_input_events };
   const Operation = struct { op: OperationType, args: beam.term };
   const DrawTextArguments = struct { text: beam.term, x: i32, y: i32, font_size: i32, color: beam.term };
   const DrawFPSArguments = struct { x: i32, y: i32 };
@@ -142,12 +143,15 @@ defmodule Raylib do
   const IsKeyPressedArguments = struct { key: KeyType, reply_pid: beam.pid };
   const PlaySoundArguments = struct { sound_id: u32 };
   const ClearBackgroundArguments = struct { color: beam.term };
-
+  const WaitTimeArguments = struct { time: f64 };
+  const SwapScreenBuffer = struct {};
+  const PollInputEvents = struct {};
   pub fn execute(ops: []Operation) !beam.term {
-      ray.BeginDrawing();
-
       for (ops) |op| {
           switch (op.op) {
+              .poll_input_events => {
+                  ray.PollInputEvents();
+              },
               .is_key_pressed => {
                   const args = try beam.get(IsKeyPressedArguments, op.args, .{});
                   const key = switch (args.key) {
@@ -155,9 +159,8 @@ defmodule Raylib do
                   };
                   const pressed = ray.IsKeyPressed(key);
                   if (pressed) {
-                      std.log.info("KEY PRESSED", .{});
+                      try beam.send(args.reply_pid, .{ .is_key_pressed, pressed }, .{});
                   }
-                  try beam.send(args.reply_pid, .{ .is_key_pressed, pressed }, .{});
               },
               .begin_drawing => ray.BeginDrawing(),
               .end_drawing => ray.EndDrawing(),
@@ -189,9 +192,16 @@ defmodule Raylib do
                   const args = try beam.get(ClearBackgroundArguments, op.args, .{});
                   ray.ClearBackground(try cast_color(args.color));
               },
+              .wait_time => {
+                  const args = try beam.get(WaitTimeArguments, op.args, .{});
+                  ray.WaitTime(args.time);
+              },
+              .swap_screen_buffer => {
+                  ray.SwapScreenBuffer();
+              },
           }
       }
-      ray.EndDrawing();
+
       return beam.make(.ok, .{});
   }
 
