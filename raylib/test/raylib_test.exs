@@ -65,7 +65,7 @@ defmodule RaylibTest do
               state
           end
 
-        delta_time = Raylib.wait_target_FPS(60.0)
+        delta_time = Raylib.wait_target_fps()
 
         state = %{
           state
@@ -80,6 +80,7 @@ defmodule RaylibTest do
 
     assert Raylib.init_window(640, 480, "jeje") == :ok
     assert Raylib.init_audio_device() == :ok
+    assert Raylib.set_target_fps(60) == :ok
     assert Raylib.window_should_close() == false
     assert Raylib.load_sound(1, "./test/sounds/bounce-effect.ogg")
 

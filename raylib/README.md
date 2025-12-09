@@ -5,6 +5,15 @@ EVERY LINE HAS A PRACTICAL REASON.
 
 This library does not attempt to map the behavior of Raylib one-to-one, but rather seeks its most appropiate use.
 
+## Requirements
+
+Raylib must be compiled with `SUPPORT_CUSTOM_FRAME_CONTROL` enabled.
+
+To enable this flag:
+1. Edit `src/config.h` in the raylib source code
+2. Uncomment or add: `#define SUPPORT_CUSTOM_FRAME_CONTROL`
+3. Compile raylib
+
 ## Installation
 
 If [available in Hex](https://hex.pm/docs/publish), the package can be installed

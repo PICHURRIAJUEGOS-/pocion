@@ -49,6 +49,10 @@ defmodule HelloWorld do
         state.y_delta
       end
 
+    Pocion.call_window(:hello_world, fn ->
+      Raylib.wait_target_fps()
+    end)
+
     loop(%{state | y: y_next, y_delta: y_delta})
   end
 end

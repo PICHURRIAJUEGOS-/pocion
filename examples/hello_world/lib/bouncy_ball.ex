@@ -81,6 +81,10 @@ defmodule BouncyBall do
       end
 
     Pocion.execute(:bouncy_ball, operations)
+    Pocion.call_window(:bouncy_ball, fn ->
+      Raylib.wait_target_fps()
+    end)
+
     loop(%{state | x: x, y: y, vel: vel, dir_x: dir_x, dir_y: dir_y})
   rescue
     ex ->
@@ -166,6 +170,10 @@ defmodule BouncyBallVector2 do
         %{op: :play_sound, args: %{sound_id: 1}}
       ])
     end
+
+    Pocion.call_window(:bouncy_ball_vector2, fn ->
+      Raylib.wait_target_fps()
+    end)
 
     loop(%{state | ball_speed: ball_speed, ball_position: ball_position})
   rescue

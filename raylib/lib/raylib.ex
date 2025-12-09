@@ -23,7 +23,8 @@ defmodule Raylib do
 
   const State = struct { sounds: std.AutoHashMap(u32, ray.Sound) };
 
-  var previous_time: f64 = 0.0;
+  var engine_previous_time: f64 = 0.0;
+  var engine_target_FPS: f64 = 60.0;
 
   // Module callbacks
 
@@ -50,8 +51,13 @@ defmodule Raylib do
       defer beam.allocator.free(ctitle[0..std.mem.len(ctitle)]);
       ray.SetConfigFlags(ray.FLAG_MSAA_4X_HINT);
       ray.InitWindow(width, height, ctitle);
-      previous_time = ray.GetTime();
+      engine_previous_time = ray.GetTime();
       return beam.make(.ok, .{});
+  }
+
+  pub fn set_target_fps(fps: i32) beam.term {
+  engine_target_FPS = @floatFromInt(fps);
+  return beam.make(.ok, .{});
   }
 
   // TODO: move to init_window option
@@ -60,10 +66,10 @@ defmodule Raylib do
       return beam.make(.ok, .{});
   }
 
-  pub fn wait_target_FPS(target_FPS: f64) f64 {
+  pub fn wait_target_fps() f64 {
       var current_time = ray.GetTime();
-      var delta_time = current_time - previous_time;
-      const wait_time = (1.0 / target_FPS) - delta_time;
+      var delta_time = current_time - engine_previous_time;
+      const wait_time = (1.0 / engine_target_FPS) - delta_time;
 
       if (wait_time > 0) {
           ray.PollInputEvents();
@@ -71,8 +77,8 @@ defmodule Raylib do
           current_time = ray.GetTime();
       }
 
-      delta_time = current_time - previous_time;
-      previous_time = current_time;
+      delta_time = current_time - engine_previous_time;
+      engine_previous_time = current_time;
       return delta_time;
   }
 
