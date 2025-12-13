@@ -99,8 +99,6 @@ defmodule Raylib do
       }
   }
 
-  const KeyType = enum { KEY_G };
-
   const ColorType = enum { lightgray, raywhite, lime };
 
   fn cast_color(icolor: beam.term) !ray.Color {
@@ -119,6 +117,22 @@ defmodule Raylib do
       @memcpy(null_terminated[0..text_slice.len], text_slice);
       null_terminated[text_slice.len] = 0;
       return null_terminated.ptr;
+  }
+
+  const KeyType = enum { KEY_G, KEY_H, KEY_RIGHT, KEY_LEFT, KEY_UP, KEY_DOWN, KEY_SPACE, KEY_ENTER, KEY_ESCAPE, KEY_LEFT_CONTROL };
+  fn ray_key(key: KeyType) i32 {
+      return switch (key) {
+          .KEY_G => ray.KEY_G,
+          .KEY_H => KEY_H,
+          .KEY_RIGHT => ray.KEY_RIGHT,
+          .KEY_LEFT => ray.KEY_LEFT,
+          .KEY_UP => ray.KEY_UP,
+          .KEY_DOWN => ray.KEY_DOWN,
+          .KEY_SPACE => ray.KEY_SPACE,
+          .KEY_ENTER => ray.KEY_ENTER,
+          .KEY_ESCAPE => ray.KEY_ESCAPE,
+          .KEY_LEFT_CONTROL => ray.KEY_LEFT_CONTROL,
+      };
   }
 
   const LogLevelType = enum { log_debug, log_info, log_error };
@@ -162,9 +176,7 @@ defmodule Raylib do
               },
               .is_key_pressed => {
                   const args = try beam.get(IsKeyPressedArguments, op.args, .{});
-                  const key = switch (args.key) {
-                      .KEY_G => ray.KEY_G,
-                  };
+                  const key = ray_key(args.key);
                   const pressed = ray.IsKeyPressed(key);
                   if (pressed) {
                       try beam.send(args.reply_pid, .{ .is_key_pressed, pressed }, .{});
