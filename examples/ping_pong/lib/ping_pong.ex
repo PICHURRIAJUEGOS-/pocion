@@ -1,11 +1,12 @@
 defmodule PingPong do
   @moduledoc false
   alias PingPong.Ball
+  alias PingPong.Racket
 
   defmodule State do
     use PrivateModule
 
-    defstruct [:ball, :winfo]
+    defstruct [:ball, :player, :winfo]
   end
 
   @snd_bounce 1
@@ -30,13 +31,16 @@ defmodule PingPong do
     ball =
       PingPong.Ball.new(%{x: 100, y: 100, speed: 5.0, radius: 10.0, bounce_sound_id: @snd_bounce})
 
+    player =
+      PingPong.Racket.new(%{x: 200, y: 200, width: 100, height: 10})
+
     Pocion.call_window(:main, fn ->
       Raylib.set_target_fps(60)
       Raylib.set_trace_log_level(:log_debug)
       Raylib.load_sound(@snd_bounce, "./priv/bounce-effect.ogg")
     end)
 
-    state = %State{ball: ball, winfo: winfo}
+    state = %State{ball: ball, player: player, winfo: winfo}
 
     :proc_lib.init_ack(parent, {:ok, self()})
 
@@ -86,7 +90,14 @@ defmodule PingPong do
         Ball.bounce(ball, env, collision_state, changes)
       end)
 
-    {Ball.render(ball, env, ball_changes), %{state | ball: ball}}
+    ball_operations = Ball.render(ball, env, ball_changes)
+
+    {player, player_changes} =
+      Racket.update(state.player, env)
+
+    player_operations = Racket.render(player, env, player_changes)
+
+    {ball_operations ++ player_operations, %{state | ball: ball, player: player}}
   end
 
   defp collision({:ball, ball, :env, env}) do
