@@ -29,7 +29,7 @@ defmodule Raylib.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:zigler, "~> 0.15.2", runtime: false}
+      {:zigler, "~> 0.15.2", github: "bit4bit/zigler", runtime: false}
     ]
   end
 end

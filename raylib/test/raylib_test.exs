@@ -33,6 +33,16 @@ defmodule RaylibTest do
           %{op: :clear_background, args: %{color: :raywhite}},
           %{op: :draw_fps, args: %{x: 10, y: 10}},
           %{
+            op: :draw_rectangle,
+            args: %{
+              x: 190,
+              y: trunc(state.y),
+              width: 100,
+              height: 50,
+              color: :lime
+            }
+          },
+          %{
             op: :draw_text,
             args: %{
               text: "Hello world! Press G",

@@ -214,6 +214,10 @@ defmodule Raylib do
 
                   ray.DrawText(ctext, args.x, args.y, args.font_size, try cast_color(args.color));
               },
+              .draw_rectangle => {
+                  const args = try beam.get(DrawRectangleArguments, op.args, .{});
+                  ray.DrawRectangle(args.x, args.y, args.width, args.height, try cast_color(args.color));
+              },
               .draw_fps => {
                   const args = try beam.get(DrawFPSArguments, op.args, .{});
                   ray.DrawFPS(args.x, args.y);
