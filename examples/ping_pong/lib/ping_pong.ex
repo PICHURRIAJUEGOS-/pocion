@@ -6,7 +6,7 @@ defmodule PingPong do
   defmodule State do
     use PrivateModule
 
-    defstruct [:ball, :player, :operations, :winfo]
+    defstruct [:ball, :ball_changes, :player, :player_changes, :operations, :winfo]
   end
 
   @snd_bounce 1
@@ -40,7 +40,7 @@ defmodule PingPong do
       Raylib.load_sound(@snd_bounce, "./priv/bounce-effect.ogg")
     end)
 
-    state = %State{ball: ball, player: player, winfo: winfo, operations: []}
+    state = %State{ball: ball, ball_changes: %{}, player: player, player_changes: %{}, winfo: winfo, operations: []}
 
     :proc_lib.init_ack(parent, {:ok, self()})
 
@@ -49,6 +49,10 @@ defmodule PingPong do
 
   defp add_op(state, {op, args}) do
     %{state | operations: state.operations ++ [%{op: op, args: args}]}
+  end
+
+  defp add_ops(state, ops) do
+    Enum.reduce(ops, state, &add_op/2)
   end
 
   defp flush_operations(state) do
@@ -77,7 +81,11 @@ defmodule PingPong do
   end
 
   defp draw(state) do
-    {operations, state} = flush_operations(state)
+    {operations, state} = state
+    |> add_ops(Ball.render(state.ball, state.ball_changes))
+    |> add_ops(Racket.render(state.player, state.player_changes))
+    |> flush_operations()
+
     Pocion.execute(:main, operations)
 
     state
@@ -92,26 +100,26 @@ defmodule PingPong do
   end
 
   defp logic(state, env) do
-    {ball, ball_changes} =
-      Ball.update(state.ball, env, fn ball, changes ->
-        collision_state = collision({:ball, ball, :env, env})
-        Ball.bounce(ball, env, collision_state, changes)
-      end)
+    state
+    |> update_ball(env)
+    |> update_player(env)
+    |> update_collisions(env)
+  end
 
-    ball_operations = Ball.render(ball, env, ball_changes)
+  defp update_ball(state, env) do
+    {ball, ball_changes} = Ball.update(state.ball, env)
+    %{state | ball: ball, ball_changes: ball_changes}
+  end
 
-    {player, player_changes} =
-      Racket.update(state.player, env)
+  defp update_player(state, env) do
+    {player, player_changes} = Racket.update(state.player, env)
+    %{state | player: player}
+  end
 
-    player_operations = Racket.render(player, env, player_changes)
-
-    Enum.reduce(
-      ball_operations ++ player_operations,
-      %{state | ball: ball, player: player},
-      fn op, state ->
-        add_op(state, op)
-      end
-    )
+  defp update_collisions(state, env) do
+    collision_state = collision({:ball, state.ball, :env, env})
+    {ball, ball_changes} = Ball.bounce(state.ball, env, collision_state)
+    %{state | ball: ball, ball_changes: ball_changes}
   end
 
   defp collision({:ball, ball, :env, env}) do

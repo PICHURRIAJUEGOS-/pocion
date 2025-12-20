@@ -37,7 +37,7 @@ defmodule PingPong.Ball do
     {%{state | speed: %{x: speed_x, y: speed_y}}, Map.put(changes, :bounce?, bounce?)}
   end
 
-  def render(%State{} = state, _env, changes) do
+  def render(%State{} = state, changes) do
     [
       {
         :draw_circle_v,

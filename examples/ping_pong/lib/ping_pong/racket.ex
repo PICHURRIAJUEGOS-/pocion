@@ -17,7 +17,7 @@ defmodule PingPong.Racket do
     {state, changes}
   end
 
-  def render(%State{} = state, _env, _changes) do
+  def render(%State{} = state, _changes) do
     [
       {:draw_rectangle,
        %{x: state.x, y: state.y, width: state.width, height: state.height, color: :lime}}
