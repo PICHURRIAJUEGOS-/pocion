@@ -4,11 +4,11 @@ defmodule PingPong.Racket do
   defmodule State do
     @moduledoc false
 
-    defstruct [:x, :y, :width, :height, :changes]
+    defstruct [:position, :width, :height, :changes]
   end
 
   def new(%{x: x, y: y, width: width, height: height}) do
-    %State{x: x, y: y, width: width, height: height, changes: %{}}
+    %State{position: %{x: x, y: y}, width: width, height: height, changes: %{}}
   end
 
   def step(%State{} = state, _env) do
@@ -18,7 +18,13 @@ defmodule PingPong.Racket do
   def render(%State{} = state) do
     [
       {:draw_rectangle,
-       %{x: state.x, y: state.y, width: state.width, height: state.height, color: :lime}}
+       %{
+         x: state.position.x,
+         y: state.position.y,
+         width: state.width,
+         height: state.height,
+         color: :lime
+       }}
     ]
   end
 end

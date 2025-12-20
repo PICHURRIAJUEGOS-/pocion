@@ -37,7 +37,7 @@ defmodule PingPong do
       PingPong.Ball.new(%{x: 100, y: 100, speed: 5.0, radius: 10.0, bounce_sound_id: @snd_bounce})
 
     player =
-      PingPong.Racket.new(%{x: 200, y: 200, width: 100, height: 10})
+      PingPong.Racket.new(%{x: 200, y: 400, width: 100, height: 10})
 
     Pocion.call_window(:main, fn ->
       Raylib.set_target_fps(60)
@@ -82,10 +82,6 @@ defmodule PingPong do
     }
 
     state
-    |> add_op({:clear_background, %{color: :raywhite}})
-    |> add_op(
-      {:draw_text, %{text: "Ping Pong in progress!!", x: 50, y: 200, font_size: 20, color: :lime}}
-    )
     |> logic(env)
     |> draw()
     |> wait_fps()
@@ -95,6 +91,11 @@ defmodule PingPong do
   defp draw(state) do
     {operations, state} =
       state
+      |> add_op({:clear_background, %{color: :raywhite}})
+      |> add_op(
+        {:draw_text,
+         %{text: "Ping Pong in progress!!", x: 50, y: 200, font_size: 20, color: :lime}}
+      )
       |> add_ops(Ball.render(state.ball))
       |> add_ops(Racket.render(state.player))
       |> flush_operations()
@@ -144,12 +145,15 @@ defmodule PingPong do
   end
 
   defp with_collisions(%State{} = state, env, fun) do
-    {state, collisions} = collision(state, {:ball, state.ball, :env, env})
+    {state, collisions} =
+      {state, %Collision{}}
+      |> collision({:ball, state.ball, :env, env})
+      |> collision({:ball, state.ball, :player, state.player})
 
     fun.(state, collisions, env)
   end
 
-  defp collision(state, {:ball, ball, :env, env}) do
+  defp collision({state, collisions}, {:ball, ball, :env, env}) do
     dist_vertical_walls = min(ball.position.y, env.wall.height - ball.position.y)
     dist_horizontal_walls = min(ball.position.x, env.wall.width - ball.position.x)
 
@@ -157,9 +161,52 @@ defmodule PingPong do
     ball_vertical_collision? = dist_vertical_walls <= ball.radius
 
     {state,
-     %Collision{
-       ball_horizontal_collision?: ball_horizontal_collision?,
-       ball_vertical_collision?: ball_vertical_collision?
+     %{
+       collisions
+       | ball_horizontal_collision?: ball_horizontal_collision?,
+         ball_vertical_collision?: ball_vertical_collision?
      }}
+  end
+
+  defp collision({state, collisions}, {:ball, ball, :player, player}) do
+    # Check if ball (circle) collides with player (rectangle) using bounding box
+    ball_left = ball.position.x - ball.radius
+    ball_right = ball.position.x + ball.radius
+    ball_top = ball.position.y - ball.radius
+    ball_bottom = ball.position.y + ball.radius
+
+    player_left = player.position.x
+    player_right = player.position.x + player.width
+    player_top = player.position.y
+    player_bottom = player.position.y + player.height
+
+    collision? =
+      ball_right >= player_left &&
+        ball_left <= player_right &&
+        ball_bottom >= player_top &&
+        ball_top <= player_bottom
+
+    if collision? do
+      # Determine collision side based on overlap
+      overlap_left = ball_right - player_left
+      overlap_right = player_right - ball_left
+      overlap_top = ball_bottom - player_top
+      overlap_bottom = player_bottom - ball_top
+
+      min_horizontal_overlap = min(overlap_left, overlap_right)
+      min_vertical_overlap = min(overlap_top, overlap_bottom)
+
+      ball_player_horizontal_collision? = min_horizontal_overlap < min_vertical_overlap
+      ball_player_vertical_collision? = min_vertical_overlap <= min_horizontal_overlap
+
+      {state,
+       %{
+         collisions
+         | ball_horizontal_collision?: ball_player_horizontal_collision?,
+           ball_vertical_collision?: ball_player_vertical_collision?
+       }}
+    else
+      {state, collisions}
+    end
   end
 end
