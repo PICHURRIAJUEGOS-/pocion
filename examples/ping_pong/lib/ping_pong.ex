@@ -2,11 +2,16 @@ defmodule PingPong do
   @moduledoc false
   alias PingPong.Ball
   alias PingPong.Racket
+  require Logger
 
   defmodule State do
     use PrivateModule
 
-    defstruct [:ball, :ball_changes, :player, :player_changes, :operations, :winfo]
+    defstruct [:ball, :player, :operations, :winfo]
+  end
+
+  defmodule Collision do
+    defstruct ball_horizontal_collision?: false, ball_vertical_collision?: false
   end
 
   @snd_bounce 1
@@ -40,11 +45,20 @@ defmodule PingPong do
       Raylib.load_sound(@snd_bounce, "./priv/bounce-effect.ogg")
     end)
 
-    state = %State{ball: ball, ball_changes: %{}, player: player, player_changes: %{}, winfo: winfo, operations: []}
+    state = %State{
+      ball: ball,
+      player: player,
+      operations: [],
+      winfo: winfo
+    }
 
     :proc_lib.init_ack(parent, {:ok, self()})
 
     loop(state)
+  rescue
+    ex ->
+      Logger.error(Exception.format(:error, ex, __STACKTRACE__))
+      :proc_lib.stop(self(), :exception, 5000)
   end
 
   defp add_op(state, {op, args}) do
@@ -52,7 +66,7 @@ defmodule PingPong do
   end
 
   defp add_ops(state, ops) do
-    Enum.reduce(ops, state, &add_op/2)
+    Enum.reduce(ops, state, fn op, state -> add_op(state, op) end)
   end
 
   defp flush_operations(state) do
@@ -81,10 +95,11 @@ defmodule PingPong do
   end
 
   defp draw(state) do
-    {operations, state} = state
-    |> add_ops(Ball.render(state.ball, state.ball_changes))
-    |> add_ops(Racket.render(state.player, state.player_changes))
-    |> flush_operations()
+    {operations, state} =
+      state
+      |> add_ops(Ball.render(state.ball))
+      |> add_ops(Racket.render(state.player))
+      |> flush_operations()
 
     Pocion.execute(:main, operations)
 
@@ -99,39 +114,51 @@ defmodule PingPong do
     state
   end
 
-  defp logic(state, env) do
+  defp logic(%State{} = state, env) do
     state
-    |> update_ball(env)
-    |> update_player(env)
-    |> update_collisions(env)
+    |> step_ball(env)
+    |> step_player(env)
+    |> with_collisions(env, fn state, collisions, env ->
+      state
+      |> logic_ball(collisions, env)
+    end)
   end
 
-  defp update_ball(state, env) do
-    {ball, ball_changes} = Ball.update(state.ball, env)
-    %{state | ball: ball, ball_changes: ball_changes}
+  defp logic_ball(%State{} = state, collisions, _env) do
+    ball = Ball.logic(state.ball, collisions)
+
+    %{state | ball: ball}
   end
 
-  defp update_player(state, env) do
-    {player, player_changes} = Racket.update(state.player, env)
+  defp step_ball(%State{} = state, env) do
+    ball = Ball.step(state.ball, env)
+
+    %{state | ball: ball}
+  end
+
+  defp step_player(%State{} = state, env) do
+    player = Racket.step(state.player, env)
+
     %{state | player: player}
   end
 
-  defp update_collisions(state, env) do
-    collision_state = collision({:ball, state.ball, :env, env})
-    {ball, ball_changes} = Ball.bounce(state.ball, env, collision_state)
-    %{state | ball: ball, ball_changes: ball_changes}
+  defp with_collisions(%State{} = state, env, fun) do
+    {state, collisions} = collision(state, {:ball, state.ball, :env, env})
+
+    fun.(state, collisions, env)
   end
 
-  defp collision({:ball, ball, :env, env}) do
+  defp collision(state, {:ball, ball, :env, env}) do
     dist_vertical_walls = min(ball.position.y, env.wall.height - ball.position.y)
     dist_horizontal_walls = min(ball.position.x, env.wall.width - ball.position.x)
 
-    speed_x_changed? = dist_horizontal_walls <= ball.radius
-    speed_y_changed? = dist_vertical_walls <= ball.radius
+    ball_horizontal_collision? = dist_horizontal_walls <= ball.radius
+    ball_vertical_collision? = dist_vertical_walls <= ball.radius
 
-    %{
-      speed_x_changed?: speed_x_changed?,
-      speed_y_changed?: speed_y_changed?
-    }
+    {state,
+     %Collision{
+       ball_horizontal_collision?: ball_horizontal_collision?,
+       ball_vertical_collision?: ball_vertical_collision?
+     }}
   end
 end
